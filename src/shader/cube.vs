@@ -1,6 +1,6 @@
 #version 330 core
-layout(location = 0) in vec3 v_pos;    // 顶点坐标
-layout(location = 1) in vec3 v_normal; // 顶点法向量
+layout(location = 0) in vec3 v_pos;
+layout(location = 1) in vec3 v_normal;
 layout(location = 2) in vec2 v_tex_coord;
 
 out vec3 frag_pos;

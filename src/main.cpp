@@ -4,8 +4,6 @@
 #include "camera.h"
 #include "shader.h"
 
-#include <iostream>
-
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -24,9 +22,16 @@ bool mouse_down;
 
 struct material_t {
     GLuint diffuse;
-    glm::vec3 specular = {0.5f, 0.5f, 0.5f};
+    GLuint specular;
     float shineness = 32;
 } material;
+
+struct light_t {
+    glm::vec3 position = {1.2f, 1.0f, 2.0f};
+    float k_constant = 1.0f;
+    float k_linear = 0.09f;
+    float k_quadratic = 0.032f;
+} light;
 
 auto camera_window() -> void {
     ImGui::Begin("camera");
@@ -35,18 +40,32 @@ auto camera_window() -> void {
     ImGui::Text("pitch: %.2f", camera.pitch_);
     ImGui::Text("zoom");
     ImGui::SameLine();
-    ImGui::SliderFloat("##slider", &camera.zoom_, 1, 45);
+    ImGui::SliderFloat("##zoom", &camera.zoom_, 1, 45);
     ImGui::End();
 }
 
 auto material_window() -> void {
     ImGui::Begin("material");
-    // ImGui::ColorEdit3("ambient", &material.ambient[0]);
-    // ImGui::ColorEdit3("diffuse", &material.diffuse[0]);
-    ImGui::ColorEdit3("specular", &material.specular[0]);
     ImGui::Text("shineness");
     ImGui::SameLine();
-    ImGui::SliderFloat("##slider", &material.shineness, 1, 256);
+    ImGui::SliderFloat("##shineness", &material.shineness, 1, 256);
+    ImGui::End();
+}
+
+auto light_window() -> void {
+    ImGui::Begin("light");
+    ImGui::Text("position");
+    ImGui::SameLine();
+    ImGui::SliderFloat3("##position", &light.position[0], -20, 20);
+    ImGui::Text("k_constant");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##k_constant", &light.k_constant, 0, 1);
+    ImGui::Text("k_linear");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##k_linear", &light.k_linear, 0, 1);
+    ImGui::Text("k_quadratic");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##k_quadratic", &light.k_quadratic, 0, 1);
     ImGui::End();
 }
 
@@ -113,9 +132,11 @@ auto gl_init() -> void {
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
 
-    material.diffuse = shader_t::load_texture("./img/box.png");
+    material.diffuse = shader_t::load_texture("./img/container.png");
+    material.specular = shader_t::load_texture("./img/container_specular.png");
     cube_shader.use();
     cube_shader.set_uniform("material.diffuse", 0);
+    cube_shader.set_uniform("material.specular", 1);
 
     glGenVertexArrays(1, &light_vao);
     glBindVertexArray(light_vao);
@@ -131,7 +152,7 @@ auto gl_render() -> void {
     camera.move(camera_front, camera_right, ImGui::GetIO().DeltaTime);
 
     cube_shader.use();
-    cube_shader.set_uniform("light.position", glm::vec3{1.2f, 1.0f, 2.0f});
+    cube_shader.set_uniform("light.position", light.position);
     cube_shader.set_uniform("view_pos", camera.position_);
 
     auto light_color = glm::vec3{1, 1, 1};
@@ -140,10 +161,10 @@ auto gl_render() -> void {
     cube_shader.set_uniform("light.ambient", ambient_color);
     cube_shader.set_uniform("light.diffuse", diffuse_color);
     cube_shader.set_uniform("light.specular", glm::vec3{1.0f, 1.0f, 1.0f});
+    cube_shader.set_uniform("light.k_constant", light.k_constant);
+    cube_shader.set_uniform("light.k_linear", light.k_linear);
+    cube_shader.set_uniform("light.k_quadratic", light.k_quadratic);
 
-    // cube_shader.set_uniform("material.ambient", material.ambient);
-    // cube_shader.set_uniform("material.diffuse", material.diffuse);
-    cube_shader.set_uniform("material.specular", material.specular);
     cube_shader.set_uniform("material.shininess", material.shineness);
 
     auto projection = glm::perspective(glm::radians(camera.zoom_), (float)1920 / (float)1080, 0.1f, 100.0f);
@@ -151,21 +172,24 @@ auto gl_render() -> void {
     cube_shader.set_uniform("projection", projection);
     cube_shader.set_uniform("view", view);
 
-    auto model = glm::mat4(1.0f);
-    cube_shader.set_uniform("model", model);
-
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, material.diffuse);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, material.specular);
 
     glBindVertexArray(cube_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    for (auto i = 0; i < 3; ++i) {
+        for (auto j = 0; j < 3; ++j) {
+            auto model = glm::translate(glm::mat4(1.0f), {i * 2, j * 2, 0});
+            cube_shader.set_uniform("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+    }
 
     light_shader.use();
     light_shader.set_uniform("projection", projection);
     light_shader.set_uniform("view", view);
-    model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3{1.2f, 1.0f, 2.0f});
-    model = glm::scale(model, glm::vec3(0.2f));
+    auto model = glm::scale(glm::translate(glm::mat4(1.0f), light.position), glm::vec3(0.2f));
     light_shader.set_uniform("model", model);
 
     glBindVertexArray(light_vao);
@@ -211,12 +235,13 @@ int main() {
     glfwInit();
     auto window = glfwCreateWindow(1920, 1080, "opengl", NULL, NULL);
     glfwMakeContextCurrent(window);
-    // 回调绑定放在 imgui 后端初始化之前
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, button_callback);
     glfwSetCursorPosCallback(window, cursor_callback);
 
     ImGui::CreateContext();
+    ImGui::GetIO().Fonts->Clear();
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("./font/MapleMonoNL-Regular.ttf", 28.0f);
     ImGui_ImplOpenGL3_Init();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
 
@@ -234,6 +259,7 @@ int main() {
         gl_render();
         camera_window();
         material_window();
+        light_window();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
