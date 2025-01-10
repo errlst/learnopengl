@@ -46,7 +46,7 @@ struct camera_t {
     float yaw_{-90.0f}; // 偏航角
     float pitch_{0.0f}; // 俯仰角
 
-    float speed_{2.5f};       // 移动速度
+    float speed_{10.f};       // 移动速度
     float sensitivity_{0.1f}; // 旋转零敏度
     float zoom_{45.0f};       // 缩放值
 };

@@ -33,23 +33,23 @@ class shader_t {
         glDeleteShader(f_shader);
     }
 
-    auto set_uniform(std::string_view name, glm::vec3 vec) -> void {
+    auto set_uniform(std::string_view name, glm::vec3 vec) const -> void {
         glUniform3f(get_loc(name), vec.x, vec.y, vec.z);
     }
 
-    auto set_uniform(std::string_view name, glm::mat4 mat) -> void {
+    auto set_uniform(std::string_view name, glm::mat4 mat) const -> void {
         glUniformMatrix4fv(get_loc(name), 1, GL_FALSE, &mat[0][0]);
     }
 
-    auto set_uniform(std::string_view name, float v) -> void {
+    auto set_uniform(std::string_view name, float v) const -> void {
         glUniform1f(get_loc(name), v);
     }
 
-    auto set_uniform(std::string_view name, int v) -> void {
+    auto set_uniform(std::string_view name, int v) const -> void {
         glUniform1i(get_loc(name), v);
     }
 
-    auto use() -> void { glUseProgram(pro_); }
+    auto use() const -> void { glUseProgram(pro_); }
 
     static auto load_texture(std::string_view path) -> GLuint {
         GLuint tex_id;
@@ -93,7 +93,7 @@ class shader_t {
         return {std::istreambuf_iterator<char>{ifs}, {}};
     }
 
-    auto check_compile(GLuint shader) -> bool {
+    auto check_compile(GLuint shader) const -> bool {
         auto suc = 0;
         char log[1024];
         glGetShaderiv(shader, GL_COMPILE_STATUS, &suc);
@@ -105,7 +105,7 @@ class shader_t {
         return suc;
     }
 
-    auto check_link() -> void {
+    auto check_link() const -> void {
         auto suc = 0;
         char log[1024];
         glGetProgramiv(pro_, GL_LINK_STATUS, &suc);
@@ -116,7 +116,7 @@ class shader_t {
         }
     }
 
-    auto get_loc(std::string_view name) -> GLuint {
+    auto get_loc(std::string_view name) const -> GLuint {
         auto loc = glGetUniformLocation(pro_, name.data());
         if (-1 == loc) {
             std::cerr << "not find uniform " << name << "\n";
